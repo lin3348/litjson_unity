@@ -15,7 +15,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Reflection;
-
+using UnityEngine;
 
 namespace LitJson
 {
@@ -113,21 +113,21 @@ namespace LitJson
                 IDictionary<Type, ImporterFunc>> custom_importers_table;
 
         private static readonly IDictionary<Type, ArrayMetadata> array_metadata;
-        private static readonly object array_metadata_lock = new Object ();
+        private static readonly object array_metadata_lock = new System.Object ();
 
         private static readonly IDictionary<Type,
                 IDictionary<Type, MethodInfo>> conv_ops;
-        private static readonly object conv_ops_lock = new Object ();
+        private static readonly object conv_ops_lock = new System.Object ();
 
         private static readonly IDictionary<Type, ObjectMetadata> object_metadata;
-        private static readonly object object_metadata_lock = new Object ();
+        private static readonly object object_metadata_lock = new System.Object ();
 
         private static readonly IDictionary<Type,
                 IList<PropertyMetadata>> type_properties;
-        private static readonly object type_properties_lock = new Object ();
+        private static readonly object type_properties_lock = new System.Object ();
 
         private static readonly JsonWriter      static_writer;
-        private static readonly object static_writer_lock = new Object ();
+        private static readonly object static_writer_lock = new System.Object ();
         #endregion
 
 
@@ -268,6 +268,18 @@ namespace LitJson
                 p_data.IsField = true;
 
                 props.Add (p_data);
+            }
+
+            // Export Unity private SerializeField field
+            foreach (FieldInfo f_info in type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic))
+            {
+                if (f_info.GetCustomAttribute<SerializeField>() != null && JsonMapper.base_exporters_table.ContainsKey(f_info.FieldType))
+                {
+                    PropertyMetadata p_data = new PropertyMetadata();
+                    p_data.Info = f_info;
+                    p_data.IsField = true;
+                    props.Add(p_data);
+                }
             }
 
             lock (type_properties_lock) {
@@ -610,6 +622,143 @@ namespace LitJson
                 delegate (object obj, JsonWriter writer) {
                     writer.Write(((DateTimeOffset)obj).ToString("yyyy-MM-ddTHH:mm:ss.fffffffzzz", datetime_format));
                 };
+
+            // exported for float
+            base_exporters_table[typeof(float)] =
+                delegate (object obj, JsonWriter writer) {
+                    writer.Write(double.Parse(obj.ToString()));
+                };
+
+            // extended for Unity
+            base_exporters_table[typeof(Vector2)] = ExportVector2;
+            base_exporters_table[typeof(Vector3)] = ExportVector3;
+            base_exporters_table[typeof(Vector4)] = ExportVector4;
+            base_exporters_table[typeof(Bounds)] = ExportBounds;
+            base_exporters_table[typeof(Color)] = ExportColor;
+            base_exporters_table[typeof(Color32)] = ExportColor32;
+            base_exporters_table[typeof(Ray)] = ExportRay;
+            base_exporters_table[typeof(Rect)] = ExportRect;
+            base_exporters_table[typeof(Quaternion)] = ExportQuaternion;
+        }
+
+        private static void ExportVector2(object obj, JsonWriter writer)
+        {
+            Vector2 v = (Vector2)obj;
+            writer.WriteObjectStart();
+            writer.WritePropertyName("x");
+            writer.Write(v.x);
+            writer.WritePropertyName("y");
+            writer.Write(v.y);
+            writer.WriteObjectEnd();
+        }
+
+        private static void ExportVector3(object obj, JsonWriter writer)
+        {
+            Vector3 v = (Vector3)obj;
+            writer.WriteObjectStart();
+            writer.WritePropertyName("x");
+            writer.Write(v.x);
+            writer.WritePropertyName("y");
+            writer.Write(v.y);
+            writer.WritePropertyName("z");
+            writer.Write(v.z);
+            writer.WriteObjectEnd();
+        }
+        private static void ExportVector4(object obj, JsonWriter writer)
+        {
+            Vector4 v = (Vector4)obj;
+            writer.WriteObjectStart();
+            writer.WritePropertyName("x");
+            writer.Write(v.x);
+            writer.WritePropertyName("y");
+            writer.Write(v.y);
+            writer.WritePropertyName("z");
+            writer.Write(v.z);
+            writer.WritePropertyName("w");
+            writer.Write(v.w);
+            writer.WriteObjectEnd();
+        }
+
+        private static void ExportBounds(object obj, JsonWriter writer)
+        {
+            Bounds v = (Bounds)obj;
+            writer.WriteObjectStart();
+            writer.WritePropertyName("center");
+            ExportVector3(v.center, writer);
+            writer.WritePropertyName("size");
+            ExportVector3(v.size, writer);
+            writer.WriteObjectEnd();
+        }
+
+        private static void ExportColor(object obj, JsonWriter writer)
+        {
+            Color v = (Color)obj;
+            writer.WriteObjectStart();
+            writer.WritePropertyName("r");
+            writer.Write(v.r);
+            writer.WritePropertyName("g");
+            writer.Write(v.g);
+            writer.WritePropertyName("b");
+            writer.Write(v.b);
+            writer.WritePropertyName("a");
+            writer.Write(v.a);
+            writer.WriteObjectEnd();
+        }
+
+        private static void ExportColor32(object obj, JsonWriter writer)
+        {
+            Color32 v = (Color32)obj;
+            writer.WriteObjectStart();
+            writer.WritePropertyName("r");
+            writer.Write(v.r);
+            writer.WritePropertyName("g");
+            writer.Write(v.g);
+            writer.WritePropertyName("b");
+            writer.Write(v.b);
+            writer.WritePropertyName("a");
+            writer.Write(v.a);
+            writer.WriteObjectEnd();
+        }
+
+        private static void ExportRay(object obj, JsonWriter writer)
+        {
+            Ray v = (Ray)obj;
+            writer.WriteObjectStart();
+            writer.WritePropertyName("origin");
+            ExportVector3(v.origin, writer);
+            writer.WritePropertyName("direction");
+            ExportVector3(v.direction, writer);
+            writer.WriteObjectEnd();
+        }
+
+        private static void ExportRect(object obj, JsonWriter writer)
+        {
+            Rect v = (Rect)obj;
+            writer.WriteObjectStart();
+            writer.WritePropertyName("xMin");
+            writer.Write(v.xMin);
+            writer.WritePropertyName("xMax");
+            writer.Write(v.xMax);
+            writer.WritePropertyName("yMin");
+            writer.Write(v.yMin);
+            writer.WritePropertyName("yMax");
+            writer.Write(v.yMax);
+            writer.WriteObjectEnd();
+        }
+
+        private static void ExportQuaternion(object obj, JsonWriter writer)
+        {
+            Quaternion v = (Quaternion)obj;
+            writer.WriteObjectStart();
+            writer.WritePropertyName("x");
+            writer.Write(v.x);
+            writer.WritePropertyName("y");
+            writer.Write(v.y);
+            writer.WritePropertyName("z");
+            writer.Write(v.z);
+            writer.WritePropertyName("w");
+            writer.Write(v.w);
+            writer.WriteObjectEnd();
         }
 
         private static void RegisterBaseImporters ()
@@ -717,19 +866,44 @@ namespace LitJson
             table[json_type][value_type] = importer;
         }
 
+        struct CObject
+        {
+            public object obj;
+            public int depth;
+        }
+
         private static void WriteValue (object obj, JsonWriter writer,
                                         bool writer_is_private,
                                         int depth)
         {
-            if (depth > max_nesting_depth)
-                throw new JsonException (
-                    String.Format ("Max allowed object depth reached while " +
-                                   "trying to export from type {0}",
-                                   obj.GetType ()));
+            if (depth > max_nesting_depth) {
+                throw new JsonException(
+                    String.Format("Max allowed object depth reached while " +
+                                   "trying to export from type {0}, protypeName {1}",
+                                   obj.GetType (), lastPropertyName));
+            }
 
-            if (obj == null) {
+            if (obj == null || ignoreFieldTypes.IndexOf(obj.GetType()) > -1) {
                 writer.Write (null);
                 return;
+            }
+
+            if (ignoreFieldTypes.Contains(obj.GetType()))
+            {
+                writer.Write(null);
+                return;
+            }
+
+            if (writer.IsRecyleRef)
+            {
+                if (cacheObjects.Exists((CObject cobj) => {
+                    return cobj.obj == obj && cobj.depth < depth;
+                }))
+                {
+                    writer.Write($"recyle ref obj: {obj.GetType().ToString()}");
+                    return;
+                }
+                cacheObjects.Add(new CObject() { obj = obj, depth = depth });
             }
 
             if (obj is IJsonWrapper) {
@@ -860,14 +1034,20 @@ namespace LitJson
                     writer.WritePropertyName (p_data.Info.Name);
                     WriteValue (((FieldInfo) p_data.Info).GetValue (obj),
                                 writer, writer_is_private, depth + 1);
+
                 }
                 else {
                     PropertyInfo p_info = (PropertyInfo) p_data.Info;
 
                     if (p_info.CanRead) {
+                        if (p_info.PropertyType == obj.GetType())
+                        {
+                            continue;
+                        }
                         writer.WritePropertyName (p_data.Info.Name);
-                        WriteValue (p_info.GetValue (obj, null),
+                        WriteValue(p_info.GetValue (obj, null),
                                     writer, writer_is_private, depth + 1);
+  
                     }
                 }
             }
@@ -887,10 +1067,26 @@ namespace LitJson
             }
         }
 
-        public static void ToJson (object obj, JsonWriter writer)
+
+        internal static string lastPropertyName = "";
+        private static List<CObject> cacheObjects = new List<CObject>();
+        private static List<Type> ignoreFieldTypes = new List<Type>();
+
+        public static void ToJson (object obj, JsonWriter writer, List<Type> keys = null)
         {
+            if (keys != null)
+                ignoreFieldTypes = keys;
+            else
+                ignoreFieldTypes.Clear();
+
+            cacheObjects.Clear();
+
             WriteValue (obj, writer, false, 0);
+
+            cacheObjects.Clear();
+            ignoreFieldTypes.Clear();
         }
+
 
         public static JsonData ToObject (JsonReader reader)
         {

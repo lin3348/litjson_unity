@@ -52,6 +52,8 @@ namespace LitJson
         private bool                 validate;
         private bool                 lower_case_properties;
         private TextWriter           writer;
+
+        private bool                isRecyleRef;
         #endregion
 
 
@@ -84,7 +86,11 @@ namespace LitJson
         }
         #endregion
 
-
+        public bool IsRecyleRef
+        {
+            get { return isRecyleRef; }
+            set { isRecyleRef = value; }
+        }
         #region Constructors
         static JsonWriter ()
         {
@@ -458,6 +464,7 @@ namespace LitJson
 
         public void WritePropertyName (string property_name)
         {
+            JsonMapper.lastPropertyName = property_name;
             DoValidation (Condition.Property);
             PutNewline ();
             string propertyName = (property_name == null || !lower_case_properties)
